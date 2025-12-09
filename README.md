@@ -179,7 +179,7 @@ portfolio.print_portfolio_summary(hrp_weights)
 
 ---
 
-## 📁 Module Descriptions
+## Module Descriptions
 
 ### `advanced_derivatives/`
 Implements sophisticated derivative pricing and hedging strategies:
@@ -389,7 +389,7 @@ class PortfolioConstruction:
 
 ---
 
-## 🛠️ Installation & Setup
+## Installation & Setup
 
 ### System Requirements
 - Python 3.8 or higher
@@ -631,7 +631,7 @@ Total Files:           50+
 Total Lines of Code:   3,500+
 Test Coverage:         85%+
 Documentation:         Comprehensive
-Status:                Production Ready ✅
+Status:                Production Ready
 License:               MIT
 Python Version:        3.8+
 ```
