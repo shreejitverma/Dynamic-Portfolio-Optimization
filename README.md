@@ -17,7 +17,7 @@ This project develops a sophisticated **dynamic portfolio optimization model** t
 
 ---
 
-## 🎯 Key Features
+## Key Features
 
 ### 1. **Advanced Derivatives Module**
 - Interest Rate Swaps (IRS) with cash flow calculations
@@ -48,7 +48,7 @@ This project develops a sophisticated **dynamic portfolio optimization model** t
 
 ---
 
-## 📊 Performance Results (2018-2024)
+## Performance Results (2018-2024)
 
 | Metric | Value |
 |--------|-------|
@@ -61,7 +61,7 @@ This project develops a sophisticated **dynamic portfolio optimization model** t
 
 ---
 
-## 🏗️ Project Architecture
+## Project Architecture
 
 ```
 Dynamic-Portfolio-Optimization/
@@ -104,7 +104,7 @@ Dynamic-Portfolio-Optimization/
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -218,7 +218,7 @@ Stochastic modeling and simulations:
 
 ---
 
-## 🧮 Mathematical Framework
+## Mathematical Framework
 
 ### Geometric Brownian Motion
 ```
@@ -287,7 +287,7 @@ Where:
 
 ---
 
-## 🔧 Core Classes & Methods
+## Core Classes & Methods
 
 ### Advanced Derivatives
 ```python
@@ -333,7 +333,7 @@ class PortfolioConstruction:
 
 ---
 
-## 📈 Key Findings
+## Key Findings
 
 ### Finding 1: Dynamic Hedging Importance
 - Static portfolios underperform dynamic strategies by 1-2% annually
@@ -361,7 +361,7 @@ class PortfolioConstruction:
 
 ---
 
-## 📚 Usage Scenarios
+## Usage Scenarios
 
 ### For Portfolio Managers
 - Construct optimized portfolios using HRP
@@ -437,7 +437,7 @@ jupyter >= 1.0.0
 
 ---
 
-## 📝 Example Workflows
+## Example Workflows
 
 ### Workflow 1: Complete Risk Analysis
 ```
@@ -473,7 +473,7 @@ jupyter >= 1.0.0
 
 ---
 
-## 🔍 Configuration
+## Configuration
 
 Key parameters can be configured in each module:
 
@@ -500,7 +500,7 @@ INDEX_SYMBOLS = ['^GSPC', '^DJI', '^IXIC', '^FTSE', '^NSEI']
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Run Examples
 ```bash
@@ -537,7 +537,7 @@ pytest tests/ --cov=. --cov-report=html
 
 ---
 
-## 🔐 Risk Disclaimer
+## Risk Disclaimer
 
 This project is for educational and research purposes. It should not be used for production trading without:
 - Thorough testing on your specific use case
@@ -548,7 +548,7 @@ This project is for educational and research purposes. It should not be used for
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions welcome! Please follow these guidelines:
 
@@ -560,7 +560,7 @@ Contributions welcome! Please follow these guidelines:
 
 ---
 
-## 📞 Support & Contact
+## Support & Contact
 
 ### Authors
 - **Shreejit Verma**: shreejitverma@gmail.com
@@ -574,7 +574,7 @@ Contributions welcome! Please follow these guidelines:
 
 ---
 
-## 📰 Citation
+## Citation
 
 If you use this project in research, please cite:
 
@@ -591,13 +591,13 @@ If you use this project in research, please cite:
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🎓 Educational Value
+## Educational Value
 
 This project demonstrates:
 - **Quantitative Finance**: Advanced derivative pricing and valuation
@@ -608,7 +608,7 @@ This project demonstrates:
 
 ---
 
-## 🔗 Useful Resources
+## Useful Resources
 
 ### Academic References
 - Fernholz, E.R. (2002) - *Stochastic Portfolio Theory*
@@ -624,7 +624,7 @@ This project demonstrates:
 
 ---
 
-## 📊 Repository Statistics
+## Repository Statistics
 
 ```
 Total Files:           50+
@@ -638,7 +638,7 @@ Python Version:        3.8+
 
 ---
 
-## 🎉 Acknowledgments
+## Acknowledgments
 
 - **WorldQuant University** for the educational opportunity
 - **Contributors** for feedback and improvements
@@ -647,8 +647,8 @@ Python Version:        3.8+
 ---
 
 **Version**: 1.0.0  
-**Last Updated**: December 2024  
-**Status**: ✅ Production Ready
+**Last Updated**: May 2024  
+**Status**: Production Ready
 
 ---
 
