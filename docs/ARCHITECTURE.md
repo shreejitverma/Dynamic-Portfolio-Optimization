@@ -1,44 +1,44 @@
 # Project Architecture
 
 ## Overview
-The system follows a modular pipeline architecture, processing data from ingestion to visualization.
+The system has been refactored into a **modular, layered architecture** designed for scalability and extensibility.
 
 ```mermaid
 graph TD
-    A[Data Ingestion] --> B[Analysis & ML];
-    A --> C[Portfolio Optimization];
-    B --> C;
-    C --> D[Backtesting Engine];
-    D --> E[Reporting & Visualization];
+    Data[Data Layer] --> Analysis[Analysis Layer]
+    Data --> Opt[Optimization Layer]
+    Analysis --> Opt
+    Opt --> BT[Backtesting Layer]
+    BT --> Viz[Presentation Layer]
 ```
 
-## Core Modules
+## Module Breakdown
 
-### 1. Data Layer (`data/`)
-- **`MarketDataFetcher`**: Unified interface for Yahoo Finance (Prices) and FRED (Economic Data).
-- **Streaming**: Supports generator-based real-time price feeds.
+### 1. Optimization Layer (`portfolio/optimization/`)
+*Design Pattern: Strategy*
+- **`base.py`**: Defines the `OptimizationStrategy` interface.
+- **`mean_variance.py`**: Standard convex optimization (MinVar, IVP).
+- **`risk_parity.py`**: Risk budgeting (ERC) and clustering (HRP).
+- **`advanced.py`**: Complex models (Mean-CVaR, Black-Litterman).
 
-### 2. Analytics Layer (`analysis/`)
-- **Feature Engineering**: Calculates rolling volatility, momentum, and trends.
-- **Factor Models**: Decomposes returns into market, size, and value factors.
-- **Regime Detection**: Uses Hidden Markov Models to classify market states.
+### 2. Backtesting Layer (`portfolio/backtesting/`)
+*Design Pattern: Template Method*
+- **`engine.py`**: `BacktestEngine` defines the simulation skeleton (PnL, rebalancing loops).
+- **`strategies.py`**: Concrete implementations (`LongOnlyBacktester`) override specific logic.
+- **`utils.py`**: Shared utilities for calendar management and math.
 
-### 3. Optimization Layer (`portfolio/construction.py`)
-- **Mean-CVaR**: Convex optimization for tail risk.
-- **Black-Litterman**: Bayesian approach to combining views with priors.
-- **HRP**: Machine Learning (Clustering) approach to allocation.
+### 3. Analysis Layer (`analysis/`)
+- **`volatility.py`**: GARCH models for dynamic risk forecasting.
+- **`factors.py`**: Fama-French factor regressions.
+- **`ml_models.py`**: Machine Learning for alpha generation.
 
-### 4. Simulation Layer (`portfolio/backtesting.py`, `portfolio/execution.py`)
-- **Backtester**: Event-driven simulation with rebalancing logic.
-- **Execution Simulator**: Models market impact and slippage based on volume.
+### 4. Data Layer (`data/`)
+- **`stock_data_fetcher.py`**: Unified gateway for Yahoo Finance and FRED data. Supports real-time streaming generators.
 
 ### 5. Presentation Layer (`reporting/`)
-- **Streamlit Dashboard**: Interactive UI for user control.
-- **Plotly**: Engine for dynamic charts.
+- **`dashboard.py`**: Streamlit-based web application for user interaction.
+- **`visualizer.py`**: Plotly-based charting engine.
 
-## Technology Stack
-- **Python 3.8+**
-- **Data**: Pandas, Numpy, yfinance, fredapi
-- **Optimization**: CVXPY, Scipy
-- **ML/Stats**: Scikit-Learn, Statsmodels
-- **UI**: Streamlit, Plotly
+## DevOps & Infrastructure
+- **Docker**: Containerized environment ensuring reproducibility.
+- **GitHub Actions**: CI pipeline running unit tests on every push.

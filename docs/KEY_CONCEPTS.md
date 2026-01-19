@@ -19,11 +19,13 @@ Uses machine learning (clustering) to allocate risk.
 2.  **Recursive Bisection**: Split allocations top-down based on cluster volatility.
 3.  **Benefit**: Does not require inverting a covariance matrix, making it robust to noise and highly correlated assets.
 
-## 4. Fama-French Factor Model
+## 4. GARCH Volatility Modeling
+**Generalized Autoregressive Conditional Heteroskedasticity (GARCH)** models volatility that changes over time ("clustering").
+- **Core Idea**: Today's volatility depends on yesterday's volatility and yesterday's shock (return).
+- **Use Case**: Predicting future risk more accurately than simple historical standard deviation.
+
+## 5. Fama-French Factor Model
 Explains returns using 3 factors:
 1.  **Market Risk (Mkt-RF)**: Beta exposure.
 2.  **Size (SMB)**: Small caps tend to outperform large caps.
 3.  **Value (HML)**: Value stocks tend to outperform growth stocks.
-
-## 5. Market Regime Detection
-Markets behave differently in "calm" vs "crisis" periods. We use **Markov Switching Models** to infer the hidden state (Regime) based on observed volatility and returns.

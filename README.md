@@ -6,7 +6,7 @@
 
 This project develops a sophisticated **dynamic portfolio optimization model** that integrates advanced derivatives, stochastic calculus, and machine learning to manage financial risk in real-time. The system responds dynamically to market fluctuations, interest rate changes (SOFR/SONIA), and currency movements while incorporating hedging strategies for multinational portfolios.
 
-It has been significantly enhanced to include state-of-the-art features like Mean-CVaR optimization, Black-Litterman models, Machine Learning-based alpha generation, and a comprehensive interactive dashboard.
+It has been **significantly enhanced and refactored** to follow modern software engineering standards, utilizing modular design patterns (Strategy), robust typing, and the latest Python libraries (Pandas 2.0+, Scikit-Learn 1.3+).
 
 ### Authors
 - **Farbod Tabatabai** (farbodt2000@gmail.com)
@@ -21,27 +21,34 @@ It has been significantly enhanced to include state-of-the-art features like Mea
 
 ## Key Features
 
-### 1. **Advanced Optimization Engine**
+### 1. **Modular Optimization Engine (`portfolio.optimization`)**
+- **Strategy Pattern Implementation**: Easily extensible framework for adding new strategies.
 - **Hierarchical Risk Parity (HRP)**: Robust allocation using graph theory.
 - **Mean-CVaR Optimization**: Minimizes Conditional Value at Risk for tail risk management.
-- **Black-Litterman Model**: Combines market equilibrium with investor views for posterior return estimation.
-- **Markowitz Mean-Variance**: Classic efficient frontier analysis.
+- **Black-Litterman Model**: Combines market equilibrium with investor views.
+- **Markowitz Mean-Variance**: Classic efficient frontier analysis (MinVar, Max Sharpe).
 
-### 2. **Comprehensive Risk Management**
-- **VaR & Expected Shortfall**: Historical and parametric calculations.
-- **Stress Testing**: Scenario analysis for market crashes and booms.
+### 2. **Advanced Backtesting Framework (`portfolio.backtesting`)**
+- **Event-Driven Engine**: Simulates realistic trading environments.
+- **Transaction Costs**: Models rebalancing and holding costs.
+- **Statistical Significance**: Alpha/Beta analysis with t-stats and p-values.
+- **Performance Attribution**: Breakdown of returns by asset contribution.
+
+### 3. **Machine Learning & Analytics (`analysis`)**
+- **Volatility Forecasting**: GARCH(1,1) model for dynamic volatility prediction.
+- **Return Prediction**: Random Forest models to predict future asset returns.
 - **Factor Models**: Fama-French 3-factor analysis for risk attribution.
 - **Regime Detection**: Markov Switching models to identify high/low volatility regimes.
 
-### 3. **Machine Learning & Analytics**
-- **Return Prediction**: Random Forest models to predict future asset returns using technical indicators.
-- **Execution Simulation**: Realistic trade execution modeling slippage and market impact.
-- **Statistical Significance**: Alpha/Beta analysis with t-stats and p-values.
+### 4. **Data & Visualization**
+- **Robust Data Ingestion**: `MarketDataFetcher` supporting Yahoo Finance, FRED, and Alpha Vantage.
+- **Interactive Dashboard**: Streamlit-based UI for real-time analysis and backtesting.
+- **Real-time Streaming**: Simulates live data feeds.
 
-### 4. **Data & Technology**
-- **Real-time Data**: Streaming prices via Yahoo Finance.
-- **Parallel Processing**: Multi-core optimization for hyperparameter tuning.
-- **Interactive Dashboard**: Streamlit-based UI for backtesting and visualization.
+### 5. **DevOps & Quality**
+- **CI/CD Pipeline**: GitHub Actions for automated testing.
+- **Dockerized**: Containerized application for easy deployment.
+- **Type Hinting**: Extensive use of Python type hints for code clarity.
 
 ---
 
@@ -52,13 +59,21 @@ Dynamic-Portfolio-Optimization/
 ├── analysis/                      # Analytics & ML
 │   ├── factors.py                 # Fama-French Factor Models
 │   ├── ml_models.py               # ML Return Predictor
-│   └── regime.py                  # Market Regime Detection
+│   ├── regime.py                  # Market Regime Detection
+│   └── volatility.py              # GARCH Volatility Model
 ├── data/                          # Data fetching
 │   ├── stock_data_fetcher.py      # Robust Market Data (YF/FRED)
 │   └── ...
 ├── portfolio/                     # Core Logic
-│   ├── construction.py            # HRP, Mean-CVaR, Black-Litterman
-│   ├── backtesting.py             # Backtest Engine with Costs
+│   ├── optimization/              # Optimization Strategies
+│   │   ├── base.py                # Abstract Base Class
+│   │   ├── mean_variance.py       # MinVar, IVP
+│   │   ├── risk_parity.py         # HRP, ERC
+│   │   └── advanced.py            # MeanCVaR, BlackLitterman
+│   ├── backtesting/               # Backtesting Framework
+│   │   ├── engine.py              # Base Engine
+│   │   ├── strategies.py          # LongOnly, SignalBased
+│   │   └── utils.py               # Utilities
 │   ├── performance.py             # Risk Metrics (VaR, ES)
 │   ├── execution.py               # Trade Execution Simulator
 │   └── optimization_tuning.py     # Grid Search Optimization
@@ -98,9 +113,9 @@ Launch the full-featured dashboard to explore strategies:
 streamlit run reporting/dashboard.py
 ```
 
-#### 2. Black-Litterman Optimization
+#### 2. Optimization (New Modular API)
 ```python
-from portfolio.construction import BlackLitterman
+from portfolio.optimization import BlackLitterman
 import pandas as pd
 
 # Load data
@@ -115,17 +130,16 @@ bl = BlackLitterman(returns, market_caps=market_caps, absolute_views=views)
 print("Optimal Weights:", bl.weights)
 ```
 
-#### 3. Machine Learning Prediction
+#### 3. Backtesting
 ```python
-from analysis.ml_models import ReturnPredictor
+from portfolio.backtesting import LongOnlyBacktester
 
-# Train model
-predictor = ReturnPredictor(n_estimators=100)
-predictor.fit(prices_df)
+# Initialize Backtester
+bt = LongOnlyBacktester(prices_df, weighting_scheme='HRP', rebalance='M')
 
-# Predict next period returns
-forecast = predictor.predict(prices_df)
-print(forecast)
+# Run Simulation
+results = bt.run_backtest(backtest_name="HRP_Strategy")
+print(results.head())
 ```
 
 ---
@@ -134,8 +148,8 @@ print(forecast)
 
 Detailed documentation is available in the `docs/` directory:
 
-- [**API Reference**](docs/API_REFERENCE.md): Detailed class and method descriptions.
-- [**Architecture**](docs/ARCHITECTURE.md): System design and data flow.
+- [**API Reference**](docs/API_REFERENCE.md): Detailed class and method descriptions for the new modular structure.
+- [**Architecture**](docs/ARCHITECTURE.md): System design, patterns, and data flow.
 - [**Key Concepts**](docs/KEY_CONCEPTS.md): Explanations of financial models used.
 - [**Results**](docs/RESULTS.md): Sample performance metrics and benchmarks.
 

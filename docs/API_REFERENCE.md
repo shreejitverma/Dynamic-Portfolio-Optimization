@@ -1,51 +1,62 @@
 # API Reference
 
-## Portfolio Construction (`portfolio.construction`)
+## Portfolio Optimization (`portfolio.optimization`)
 
-### `MeanCVaR`
-Optimizes portfolio weights to minimize Conditional Value at Risk (CVaR).
+The optimization module follows the **Strategy Pattern**, where all strategies inherit from `OptimizationStrategy`.
 
-- `__init__(data, alpha=0.95)`: Initializes with return data and confidence level.
-- `_optimize()`: Solves the convex problem using `cvxpy`.
+### Base Class
+- **`OptimizationStrategy`** (`portfolio.optimization.base`): Abstract base class requiring `calculate_weights()`.
 
-### `BlackLitterman`
-Combines market equilibrium with investor views.
+### Strategies
 
-- `__init__(data, market_caps, risk_aversion=2.5, tau=0.05, absolute_views=None)`:
-    - `absolute_views`: Dict of {Asset: Return} (e.g., {'AAPL': 0.05}).
-- `weights`: The optimal weights based on posterior estimates.
+#### Mean-Variance (`portfolio.optimization.mean_variance`)
+- **`MinVar`**: Minimizes portfolio variance.
+- **`IVP`**: Inverse Variance Portfolio (1/Volatility).
 
-## Analysis & ML (`analysis`)
+#### Risk Parity (`portfolio.optimization.risk_parity`)
+- **`HRP`**: Hierarchical Risk Parity using clustering and recursive bisection.
+- **`ERC`**: Equal Risk Contribution optimization.
 
-### `FactorModel` (`analysis.factors`)
-Implements Fama-French factor analysis.
-
-- `fit()`: Fits OLS regression of asset returns against factors.
-- `get_attribution()`: Returns performance attribution (Factor vs. Specific).
-
-### `ReturnPredictor` (`analysis.ml_models`)
-Machine Learning model for return forecasting.
-
-- `fit(prices_df)`: Trains Random Forest on technical indicators (Momentum, Volatility).
-- `predict(current_prices_df)`: Predicts next-day returns.
-
-### `MarketRegimeDetector` (`analysis.regime`)
-Identifies market regimes (e.g., Bull/Bear) using Markov Switching.
-
-- `fit()`: Fits the Markov model.
-- `get_current_regime()`: Returns the current regime state.
+#### Advanced (`portfolio.optimization.advanced`)
+- **`MeanCVaR`**: Convex optimization minimizing Conditional Value at Risk (Expected Shortfall).
+- **`BlackLitterman`**: Bayesian model combining market priors with investor views.
 
 ## Backtesting (`portfolio.backtesting`)
 
-### `FHLongOnlyWeights`
-Long-only backtesting engine.
+### Engine (`portfolio.backtesting.engine`)
+- **`BacktestEngine`**: Abstract base class for simulation logic.
+    - `run_backtest()`: Executes the simulation.
+    - `get_performance_attribution()`: Calculates return contribution.
+    - `calculate_significance()`: Computes alpha/beta statistics.
 
-- `run_backtest(backtest_name, holdings_costs_bps_pa, rebalance_costs_bps)`: Runs the simulation with transaction costs.
-- `calculate_significance(benchmark_series)`: Computes Alpha, Beta, T-Stats, and P-Values.
+### Strategies (`portfolio.backtesting.strategies`)
+- **`LongOnlyBacktester`**: Implementation for long-only strategies with rebalancing.
+- **`SignalBacktester`**: Implementation for signal-based (long/short) strategies.
+
+### Utilities (`portfolio.backtesting.utils`)
+- **`BacktestUtils`**: Helper functions for date resampling and weight expansion.
+
+## Analysis (`analysis`)
+
+### `GARCHModel` (`analysis.volatility`)
+- `fit()`: Estimates GARCH(1,1) parameters via MLE.
+- `predict_next_volatility()`: Forecasts next-period annualized volatility.
+
+### `FactorModel` (`analysis.factors`)
+- `fit()`: Fits Fama-French factor model.
+- `get_attribution()`: Returns factor vs. specific return decomposition.
+
+### `ReturnPredictor` (`analysis.ml_models`)
+- `fit(prices_df)`: Trains Random Forest on technical features.
+- `predict(current_prices_df)`: Generates return forecasts.
+
+### `MarketRegimeDetector` (`analysis.regime`)
+- `fit()`: Identifies market regimes (e.g., Bull/Bear) using Markov Switching.
 
 ## Reporting (`reporting`)
 
-### `ReportGenerator` (`reporting.visualizer`)
-Generates HTML performance reports.
+### `dashboard.py`
+Streamlit application for interactive analysis.
 
-- `generate_html_report(filename)`: Saves interactive Plotly charts to HTML.
+### `ReportGenerator` (`reporting.visualizer`)
+Generates static HTML reports with Plotly charts.
