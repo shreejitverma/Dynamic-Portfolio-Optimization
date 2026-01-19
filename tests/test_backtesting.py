@@ -7,7 +7,7 @@ import os
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from portfolio.backtesting import FHLongOnlyWeights
+from portfolio.backtesting import LongOnlyBacktester
 
 class TestBacktesting(unittest.TestCase):
     def setUp(self):
@@ -24,13 +24,13 @@ class TestBacktesting(unittest.TestCase):
         # 1. Run without costs
         # Create backtest obj. We need minimal params to avoid errors.
         # rebalance='W' so we have some trades.
-        bt_no_cost = FHLongOnlyWeights(self.ts, DTINI='2020-01-01', DTEND='2020-04-10', 
+        bt_no_cost = LongOnlyBacktester(self.ts, DTINI='2020-01-01', DTEND='2020-04-10', 
                                        rebalance='W', weighting_scheme='EW', static=False)
         res_no_cost = bt_no_cost.run_backtest(backtest_name='NoCost', holdings_costs_bps_pa=0, rebalance_costs_bps=0)
         final_no_cost = res_no_cost.iloc[-1].item()
         
         # 2. Run with costs
-        bt_with_cost = FHLongOnlyWeights(self.ts, DTINI='2020-01-01', DTEND='2020-04-10', 
+        bt_with_cost = LongOnlyBacktester(self.ts, DTINI='2020-01-01', DTEND='2020-04-10', 
                                          rebalance='W', weighting_scheme='EW', static=False)
         # 10 bps rebalance cost
         res_with_cost = bt_with_cost.run_backtest(backtest_name='WithCost', holdings_costs_bps_pa=0, rebalance_costs_bps=10)
@@ -43,7 +43,7 @@ class TestBacktesting(unittest.TestCase):
 
     def test_attribution(self):
         print("\nTesting Performance Attribution...")
-        bt = FHLongOnlyWeights(self.ts, DTINI='2020-01-01', DTEND='2020-04-10', 
+        bt = LongOnlyBacktester(self.ts, DTINI='2020-01-01', DTEND='2020-04-10', 
                                rebalance='M', weighting_scheme='EW', static=False)
         bt.run_backtest()
         
@@ -54,7 +54,7 @@ class TestBacktesting(unittest.TestCase):
 
     def test_significance(self):
         print("\nTesting Statistical Significance...")
-        bt = FHLongOnlyWeights(self.ts, DTINI='2020-01-01', DTEND='2020-04-10', 
+        bt = LongOnlyBacktester(self.ts, DTINI='2020-01-01', DTEND='2020-04-10', 
                                rebalance='M', weighting_scheme='EW', static=False)
         bt.run_backtest()
         

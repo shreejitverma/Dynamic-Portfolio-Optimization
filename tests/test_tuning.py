@@ -7,7 +7,7 @@ import os
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from portfolio.backtesting import FHLongOnlyWeights
+from portfolio.backtesting import LongOnlyBacktester
 from portfolio.optimization_tuning import BacktestGridSearch
 
 class TestTuning(unittest.TestCase):
@@ -32,7 +32,7 @@ class TestTuning(unittest.TestCase):
             'static': False
         }
         
-        gs = BacktestGridSearch(FHLongOnlyWeights, self.ts, param_grid, metric='sharpe')
+        gs = BacktestGridSearch(LongOnlyBacktester, self.ts, param_grid, metric='sharpe')
         gs.run(**fixed_params)
         
         self.assertIsNotNone(gs.best_params)

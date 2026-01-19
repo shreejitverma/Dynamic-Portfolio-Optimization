@@ -32,7 +32,7 @@ class BacktestGridSearch:
         Initializes the grid search.
 
         Args:
-            strategy_class (Type): The class to instantiate (e.g., FHLongOnlyWeights).
+            strategy_class (Type): The class to instantiate (e.g., LongOnlyBacktester).
             ts_data (pd.DataFrame): Time series data for the backtest.
             param_grid (Dict): Parameters to iterate over. 
                                e.g., {'weighting_scheme': ['IVP', 'ERC'], 'rebalance': ['M', 'W']}

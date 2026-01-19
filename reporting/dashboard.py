@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from data.stock_data_fetcher import MarketDataFetcher
-from portfolio.backtesting import FHLongOnlyWeights
+from portfolio.backtesting import LongOnlyBacktester
 from portfolio.performance import get_perf_table_single
 from analysis.volatility import GARCHModel
 import plotly.graph_objects as go
@@ -46,7 +46,7 @@ if run_button:
                 st.error("No data found for the selected tickers/dates.")
             else:
                 # Run Backtest
-                bt = FHLongOnlyWeights(prices, DTINI=start_str, DTEND=end_str, 
+                bt = LongOnlyBacktester(prices, DTINI=start_str, DTEND=end_str, 
                                        rebalance=rebalance_freq, weighting_scheme=weighting_scheme, static=False)
                 backtest_res = bt.run_backtest(backtest_name="Portfolio")
                 
