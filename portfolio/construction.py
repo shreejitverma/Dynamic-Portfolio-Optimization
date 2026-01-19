@@ -4,6 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import scipy.cluster.hierarchy as sch
+import cvxpy as cp
 
 
 class HRP(object):
@@ -256,9 +257,187 @@ class ERC(object):
         return np.abs(self._risk_contribution(w) - np.ones(self.n_assets)/self.n_assets).sum()
 
 
-"""
-# TODO
-- ERC based on signal
-- Signal Rank
-- Mean-Variance on signal
-"""
+class MeanCVaR(object):
+    """
+    Implements Mean-CVaR (Conditional Value at Risk) Optimization.
+    Minimizes CVaR at a given confidence level.
+    """
+
+    def __init__(self, data, alpha=0.95):
+        """
+        Initializes the Mean-CVaR portfolio optimization.
+
+        :param data: pandas DataFrame where each column is a series of returns (rows are time periods).
+        :param alpha: Confidence level for CVaR (e.g., 0.95 means worst 5%).
+        """
+        assert isinstance(data, pd.DataFrame), "input 'data' must be a pandas DataFrame"
+        
+        self.returns = data.values
+        self.assets = data.columns
+        self.n_assets = len(self.assets)
+        self.n_samples = self.returns.shape[0]
+        self.alpha = alpha
+
+        self.weights = self._optimize()
+
+    def _optimize(self):
+        # Variables
+        w = cp.Variable(self.n_assets)
+        VaR = cp.Variable()
+        z = cp.Variable(self.n_samples)
+
+        # Objective: Minimize CVaR
+        # CVaR = VaR + (1 / ((1 - alpha) * T)) * sum(z)
+        objective = cp.Minimize(VaR + (1 / ((1 - self.alpha) * self.n_samples)) * cp.sum(z))
+
+        # Constraints
+        constraints = [
+            z >= 0,
+            z >= -self.returns @ w - VaR,  # Loss exceeds VaR
+            cp.sum(w) == 1,
+            w >= 0  # No short selling constraint
+        ]
+
+        # Problem
+        prob = cp.Problem(objective, constraints)
+        
+        try:
+            prob.solve()
+            if prob.status == cp.OPTIMAL:
+                return pd.Series(data=w.value, index=self.assets, name='Mean-CVaR')
+            else:
+                print(f"Optimization failed: {prob.status}")
+                return None
+        except Exception as e:
+            print(f"Error in CVaR optimization: {e}")
+            return None
+
+
+class BlackLitterman(object):
+    """
+    Implements the Black-Litterman Model for portfolio optimization.
+    Combines market equilibrium returns (prior) with investor views to produce
+    posterior expected returns and covariance.
+    """
+
+    def __init__(self, data, market_caps=None, risk_aversion=2.5, tau=0.05, 
+                 absolute_views=None, view_confidences=None):
+        """
+        Initializes the Black-Litterman model.
+
+        :param data: pandas DataFrame of asset returns.
+        :param market_caps: pandas Series or dict of market capitalizations (for equilibrium weights).
+                            If None, assumes equal weights (1/N) as the market prior (simplified).
+        :param risk_aversion: float, risk aversion coefficient (delta).
+        :param tau: float, uncertainty scaling factor for the prior.
+        :param absolute_views: dict, investor views {Asset: Expected_Return}. e.g. {'AAPL': 0.10}
+        :param view_confidences: dict, confidence in views (diagonal elements of Omega). 
+                                 If None, heuristics are used.
+        """
+        self.data = data
+        self.assets = data.columns
+        self.n_assets = len(self.assets)
+        self.cov = data.cov()
+        self.delta = risk_aversion
+        self.tau = tau
+        
+        # 1. Market Equilibrium (Prior)
+        if market_caps is not None:
+            if isinstance(market_caps, dict):
+                market_caps = pd.Series(market_caps)
+            market_weights = market_caps / market_caps.sum()
+        else:
+            # Fallback to Equal Weights if no caps provided
+            market_weights = pd.Series(1/self.n_assets, index=self.assets)
+            
+        self.market_weights = market_weights.reindex(self.assets).fillna(0)
+        
+        # Calculate Equilibrium Returns (Pi)
+        # Pi = delta * Sigma * w_market
+        self.pi = self.delta * self.cov.dot(self.market_weights)
+        
+        # 2. Views (P and Q matrices)
+        self.P, self.Q, self.Omega = self._process_views(absolute_views, view_confidences)
+        
+        # 3. Posterior Calculations
+        self.posterior_rets, self.posterior_cov = self._calculate_posterior()
+        
+        # 4. Optimal Weights based on Posterior
+        # w* = (lambda * Sigma)^-1 * mu
+        # Using Max Sharpe (approx) or unconstrained mean-variance
+        # Here we return weights for Max Sharpe given posterior params
+        self.weights = self._optimize_weights()
+
+    def _process_views(self, views, confidences):
+        """
+        Constructs P (picking matrix), Q (view vector), and Omega (uncertainty matrix).
+        """
+        if not views:
+            return None, None, None
+            
+        k = len(views)
+        P = np.zeros((k, self.n_assets))
+        Q = np.zeros(k)
+        Omega = np.zeros((k, k))
+        
+        for i, (asset, ret) in enumerate(views.items()):
+            if asset in self.assets:
+                col_idx = self.assets.get_loc(asset)
+                P[i, col_idx] = 1
+                Q[i] = ret
+                
+                # Confidence / Uncertainty (Omega)
+                # If not provided, Heuristic: tau * p * Sigma * p.T
+                if confidences and asset in confidences:
+                    Omega[i, i] = confidences[asset]
+                else:
+                    # Heuristic
+                    p_vec = P[i, :].reshape(1, -1)
+                    Omega[i, i] = self.tau * (p_vec @ self.cov.values @ p_vec.T).item()
+                    
+        return P, Q, Omega
+
+    def _calculate_posterior(self):
+        """
+        Calculates posterior expected returns and covariance.
+        """
+        if self.P is None:
+            # No views -> Posterior = Prior
+            return self.pi, self.cov + self.tau * self.cov
+            
+        # BL Formulas
+        # mu_bl = [(tau*Sigma)^-1 + P.T * Omega^-1 * P]^-1 * [(tau*Sigma)^-1 * pi + P.T * Omega^-1 * Q]
+        
+        tau_sigma = self.tau * self.cov
+        tau_sigma_inv = np.linalg.inv(tau_sigma)
+        omega_inv = np.linalg.inv(self.Omega)
+        
+        # M = (tau*Sigma)^-1 + P.T * Omega^-1 * P
+        M = tau_sigma_inv + self.P.T @ omega_inv @ self.P
+        M_inv = np.linalg.inv(M)
+        
+        # RHS = (tau*Sigma)^-1 * pi + P.T * Omega^-1 * Q
+        rhs = tau_sigma_inv @ self.pi + self.P.T @ omega_inv @ self.Q
+        
+        posterior_rets = M_inv @ rhs
+        
+        # Posterior Covariance
+        # Sigma_bl = Sigma + M^-1
+        posterior_cov = self.cov + M_inv
+        
+        return pd.Series(posterior_rets, index=self.assets), pd.DataFrame(posterior_cov, index=self.assets, columns=self.assets)
+
+    def _optimize_weights(self):
+        """
+        Computes optimal weights using posterior estimates.
+        Unconstrained Mean-Variance: w = (delta * Sigma)^-1 * mu
+        Normalized to sum to 1.
+        """
+        # w = (delta * Sigma_post)^-1 * mu_post
+        sigma_inv = np.linalg.inv(self.posterior_cov)
+        raw_weights = sigma_inv @ self.posterior_rets
+        
+        # Normalize
+        normalized_weights = raw_weights / raw_weights.sum()
+        
+        return pd.Series(normalized_weights, index=self.assets, name='Black-Litterman')

@@ -7,6 +7,7 @@ in addition, other analyzes are performed on the data
 
 import pandas as pd
 import numpy as np
+from scipy.stats import norm
 
 adju_factor_dict = {'daily': 252.0, 'weekly': 52.0, 'monthly': 12.0}
 
@@ -20,6 +21,84 @@ def expanding_dd(ser):
 def max_dd(ser):
     dd2here = expanding_dd(ser)
     return dd2here.min()
+
+def calculate_var(returns, confidence_level=0.95, method='historical'):
+    """
+    Calculates Value at Risk (VaR).
+
+    Args:
+        returns (pd.Series or np.array): Series of returns.
+        confidence_level (float): Confidence level (e.g., 0.95 for 95%).
+        method (str): 'historical' or 'parametric'.
+
+    Returns:
+        float: VaR value (positive number representing loss).
+    """
+    if method == 'historical':
+        return -np.percentile(returns, (1 - confidence_level) * 100)
+    elif method == 'parametric':
+        mu = np.mean(returns)
+        sigma = np.std(returns)
+        z = norm.ppf(1 - confidence_level)
+        return -(mu + z * sigma)
+    else:
+        raise ValueError("Method must be 'historical' or 'parametric'")
+
+def calculate_es(returns, confidence_level=0.95, method='historical'):
+    """
+    Calculates Expected Shortfall (ES) / Conditional VaR (CVaR).
+
+    Args:
+        returns (pd.Series or np.array): Series of returns.
+        confidence_level (float): Confidence level.
+        method (str): 'historical' or 'parametric'.
+
+    Returns:
+        float: ES value (positive number representing average loss in tail).
+    """
+    if method == 'historical':
+        var = np.percentile(returns, (1 - confidence_level) * 100)
+        return -np.mean(returns[returns <= var])
+    elif method == 'parametric':
+        mu = np.mean(returns)
+        sigma = np.std(returns)
+        alpha = 1 - confidence_level
+        return - (mu - sigma * norm.pdf(norm.ppf(alpha)) / alpha)
+    else:
+        raise ValueError("Method must be 'historical' or 'parametric'")
+
+
+def stress_test_portfolio(weights, scenarios):
+    """
+    Performs simple stress testing on a portfolio using allocation weights.
+
+    Args:
+        weights (pd.Series or dict): Portfolio allocation weights (should sum to 1).
+        scenarios (dict): Dictionary of scenarios {ScenarioName: {Asset: %Change}}.
+                          e.g., {'Crash': {'AAPL': -0.20, 'GOOG': -0.15}}
+
+    Returns:
+        pd.DataFrame: Portfolio value change under each scenario.
+    """
+    results = {}
+    
+    # Ensure weights are a Series
+    if isinstance(weights, dict):
+        weights = pd.Series(weights)
+
+    for scenario_name, shocks in scenarios.items():
+        # Start with 1.0 value
+        portfolio_return = 0.0
+        
+        for asset, weight in weights.items():
+            # Get shock for this asset, default to 0 if not in scenario
+            shock = shocks.get(asset, 0.0)
+            # Contribution to return = weight * shock
+            portfolio_return += weight * shock
+            
+        results[scenario_name] = portfolio_return
+        
+    return pd.DataFrame.from_dict(results, orient='index', columns=['Portfolio Return'])
 
 
 def get_perf_table_single(df_ts: pd.Series,
@@ -43,16 +122,25 @@ def get_perf_table_single(df_ts: pd.Series,
 
     table = pd.Series(dtype = object)
     table['frequency'] = freq
-    table['excess_returns'] = (clean_index_series[-1] / clean_index_series[0]) ** \
+    table['excess_returns'] = (clean_index_series.iloc[-1] / clean_index_series.iloc[0]) ** \
                               (adju_factor / (len(clean_index_series) - 1.0)) - 1
 
     log_returns = np.log(clean_index_series).diff(1).dropna()
     table['volatility'] = log_returns.std() * np.sqrt(adju_factor)
     table['sharpe'] = table['excess_returns'] / table['volatility']
-    table['sortino'] = table['excess_returns'] / (np.sqrt(adju_factor) * (log_returns[log_returns < 0.0]).std())
+    # Sortino needs fix: handle case where no negative returns
+    neg_rets = log_returns[log_returns < 0.0]
+    if len(neg_rets) > 0:
+        table['sortino'] = table['excess_returns'] / (np.sqrt(adju_factor) * neg_rets.std())
+    else:
+        table['sortino'] = np.nan
 
     table['maxDD'] = max_dd(clean_index_series)
     table['maxDD_to_vol_ratio'] = max_dd(clean_index_series) / table['volatility']
+    
+    # Add Risk Metrics
+    table['VaR_95'] = calculate_var(log_returns, 0.95)
+    table['ES_95'] = calculate_es(log_returns, 0.95)
 
     table['from_date'] = clean_index_series.index[0].strftime('%d-%b-%y')
     table['to_date'] = clean_index_series.index[-1].strftime('%d-%b-%y')

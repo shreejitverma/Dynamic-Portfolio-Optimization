@@ -219,7 +219,7 @@ class FHBacktestAncilliaryFunctions(object):
         a Pandas series with static non-negative weights (long-only)
         """
 
-        assert isinstance(ts, pd.DataFrame), "input 'cov' must be a pandas DataFrame"
+        assert isinstance(cov, pd.DataFrame), "input 'cov' must be a pandas DataFrame"
 
         # Inverse Volatility Portfolio
         if weighting_scheme == 'IVP':
@@ -293,7 +293,7 @@ class FHBacktestAncilliaryFunctions(object):
                 j = df0.values - num_items
                 sort_ix[i] = link[j, 0]  # item 1
                 df0 = pd.Series(link[j, 1], index=i + 1)
-                sort_ix = sort_ix.append(df0)  # item 2
+                sort_ix = pd.concat([sort_ix, df0])  # item 2
                 sort_ix = sort_ix.sort_index()  # re-sort
                 sort_ix.index = range(sort_ix.shape[0])  # re-index
 
@@ -581,7 +581,7 @@ class FHLongOnlyWeights(object):
         self.underlyings = ts.columns
 
         # fill na's and store time series data
-        ts = ts.copy().fillna(method='ffill').dropna(how='all')
+        ts = ts.copy().ffill().dropna(how='all')
         ts.index = pd.DatetimeIndex(pd.to_datetime(ts.index))
         relevant_time_period = pd.DatetimeIndex([t for t in ts.index if
                                                  pd.to_datetime(DTINI) <= t <= pd.to_datetime(DTEND)])
@@ -660,10 +660,10 @@ class FHLongOnlyWeights(object):
                 print('type of re-scaling not recognized, rescalling to one')
             k = 1 / r_weights.sum(axis=1)
             r_weights = r_weights.fillna(0).multiply(k,axis=0)
-        self.weights = r_weights.copy().fillna(method='ffill').dropna(how='all')
+        self.weights = r_weights.copy().ffill().dropna(how='all')
 
 
-    def run_backtest(self, backtest_name = 'backtest'):
+    def run_backtest(self, backtest_name = 'backtest', holdings_costs_bps_pa = 0, rebalance_costs_bps = 0):
         """"
         Runs the strategy, calculating the performance and the attributes backtest, pnl and holdings
 
@@ -671,8 +671,6 @@ class FHLongOnlyWeights(object):
         with backtest_name as sole column name
 
         """
-        # TODO: incorporate transaction costs
-
         # set up backtest series. Same calendar as the underlying time series and indexed to start at one
         self.backtest = pd.Series(index=self.ts.index)
         self.backtest.iloc[0] = 1
@@ -684,11 +682,32 @@ class FHLongOnlyWeights(object):
         # take the first set of weights available and use those at the start of the backtest
         if min(self.weights.index)>min(self.ts.index):
             w0 = pd.DataFrame(columns=[min(self.ts.index)], index=self.weights.columns, data=self.weights.iloc[0].values)
-            self.weights = self.weights.append(w0.T).sort_index()
+            self.weights = pd.concat([self.weights, w0.T]).sort_index()
 
         # set up the DataFrame that will store the quantities of each underlying held during the backtest
         self.holdings = pd.DataFrame(index=self.ts.index,columns=self.ts.columns)
         self.holdings.iloc[0] = self.weights.iloc[0] / self.ts.iloc[0] # first trade
+
+        # set up the DataFrame that will store the traded notionals of each underlying per day
+        self.traded_notional = pd.DataFrame(index=self.ts.index,columns=self.ts.columns,data=0.0)
+
+        # set up the tc Series that will keep the rebalancing costs
+        if isinstance(rebalance_costs_bps, pd.Series):
+            tc = rebalance_costs_bps[self.ts.columns] / 10000
+        elif isinstance(rebalance_costs_bps, float) or isinstance(rebalance_costs_bps, int):
+            tc = pd.Series(index=self.ts.columns,data=rebalance_costs_bps/10000)
+        else:
+            tc = pd.Series(index=self.ts.columns, data=0)
+
+        # set up the hc Series that will keep the holding costs
+        if isinstance(holdings_costs_bps_pa, pd.Series):
+            hc = holdings_costs_bps_pa[self.ts.columns] / 10000
+        elif isinstance(holdings_costs_bps_pa, float) or isinstance(holdings_costs_bps_pa, int):
+            hc = pd.Series(index=self.ts.columns, data=holdings_costs_bps_pa / 10000)
+        else:
+            hc = pd.Series(index=self.ts.columns, data=0)
+
+        reb_costs = 0
 
         # loop over days, running the strategy
         for t, tm1 in zip(self.backtest.index[1:], self.backtest.index[:-1]):
@@ -698,17 +717,102 @@ class FHLongOnlyWeights(object):
             previous_prices = self.ts.loc[:tm1].iloc[-1]
             self.pnl[t] = (self.holdings.loc[tm1].copy() * (prices_t -previous_prices)).sum()
 
-            # acumulate the pnl in the backtest series
-            self.backtest[t] = self.backtest[tm1] + self.pnl[t]
+            # take out holdings costs from the pnl
+            holdings_costs = (self.holdings.loc[tm1] * previous_prices * hc * (t - tm1).days/365.25).sum()
+
+            # acumulate the net of transaction costs pnl in the backtest series
+            self.backtest[t] = self.backtest[tm1] + self.pnl[t] - reb_costs - holdings_costs
+            reb_costs = 0
 
             # check if it is a rebalancing day, if so, recalculate the holdings based on new weights, i.e., rebalance
             if t in self.weights.index:
+                # recalculate the notionals based on the new weights
                 self.holdings.loc[t] = self.backtest.loc[tm1]*self.weights.loc[t] / self.ts.loc[t]
+                
+                # calcualte the trasaction costs to be subtracted from the next day pnl
+                # Estimate traded amount: abs(new_value - old_value)
+                # old_value = self.holdings.loc[tm1] * prices_t
+                # new_value = self.backtest.loc[tm1] * self.weights.loc[t]
+                # Approximation for simplicity as in FHSignalBasedWeights
+                self.traded_notional.loc[t,:] = (np.abs(self.holdings.loc[t] - self.holdings.loc[tm1])* prices_t).values
+                reb_costs = (self.traded_notional.loc[t,:] * tc).sum()
             else:
                 self.holdings.loc[t] = self.holdings.loc[tm1].copy()
 
         self.backtest = self.backtest.astype(float).to_frame(backtest_name).copy()
         return self.backtest
+
+    def get_performance_attribution(self):
+        """
+        Calculates simple performance attribution (Contribution to Return).
+        Returns a DataFrame with cumulative contribution of each asset.
+        """
+        # Daily return of each asset
+        asset_returns = self.ts.pct_change()
+        
+        # Shift weights to align with returns (weights determined at t-1 drive return at t)
+        # We need daily weights. If weights are static or monthly, we need to forward fill them carefully.
+        # Ideally, Contribution_t = Weight_t-1 * Return_t
+        
+        # Expand weights to daily frequency
+        daily_weights = self.weights.reindex(self.ts.index).ffill()
+        
+        # Calculate contribution
+        contribution = daily_weights.shift(1) * asset_returns
+        
+        # Cumulative contribution
+        cum_contribution = (1 + contribution).cumprod() - 1
+        return cum_contribution
+
+    def calculate_significance(self, benchmark_series):
+        """
+        Calculates statistical significance of the strategy's alpha against a benchmark.
+        
+        Args:
+            benchmark_series (pd.Series): Daily returns or price series of the benchmark.
+        
+        Returns:
+            pd.Series: Contains Alpha, Beta, T-Stat, P-Value.
+        """
+        # Align data
+        if isinstance(benchmark_series, pd.DataFrame):
+            benchmark_series = benchmark_series.iloc[:, 0]
+            
+        strategy_rets = self.backtest.pct_change().dropna()
+        
+        # If benchmark is prices, convert to returns
+        if benchmark_series.iloc[0] > 2: # heuristic check for price vs return
+            benchmark_rets = benchmark_series.pct_change().dropna()
+        else:
+            benchmark_rets = benchmark_series.dropna()
+            
+        # Align indices
+        common_index = strategy_rets.index.intersection(benchmark_rets.index)
+        y = strategy_rets.loc[common_index].iloc[:, 0]
+        x = benchmark_rets.loc[common_index]
+        
+        # Add constant for Alpha
+        X = pd.DataFrame({'Benchmark': x, 'Alpha': 1})
+        
+        # Regression
+        # (X'X)^-1 X'y
+        try:
+            import statsmodels.api as sm
+            model = sm.OLS(y, X).fit()
+            
+            results = pd.Series({
+                'Alpha (Ann.)': model.params['Alpha'] * 252,
+                'Beta': model.params['Benchmark'],
+                'Alpha T-Stat': model.tvalues['Alpha'],
+                'Alpha P-Value': model.pvalues['Alpha'],
+                'R-Squared': model.rsquared
+            })
+            return results
+        except ImportError:
+            print("statsmodels not installed. Calculating Beta only using covariance.")
+            cov = np.cov(y, x)
+            beta = cov[0, 1] / cov[1, 1]
+            return pd.Series({'Beta': beta})
 
 class FHSignalBasedWeights(object):
     """
@@ -855,7 +959,7 @@ class FHSignalBasedWeights(object):
         # take the first set of weights available and use those at the start of the backtest
         if min(self.weights.index)>min(self.ts.index):
             w0 = pd.DataFrame(columns=[min(self.ts.index)], index=self.weights.columns, data=self.weights.iloc[0].values)
-            self.weights = self.weights.append(w0.T).sort_index()
+            self.weights = pd.concat([self.weights, w0.T]).sort_index()
 
         # set up the DataFrame that will store the quantities of each underlying held during the backtest
         self.holdings = pd.DataFrame(index=self.ts.index,columns=self.ts.columns)
