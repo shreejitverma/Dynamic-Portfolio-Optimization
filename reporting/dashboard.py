@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from data.stock_data_fetcher import MarketDataFetcher
 from portfolio.backtesting import FHLongOnlyWeights
 from portfolio.performance import get_perf_table_single
+from analysis.volatility import GARCHModel
 import plotly.graph_objects as go
 
 # Set page config
@@ -58,6 +59,17 @@ if run_button:
                 with col1:
                     st.subheader("Performance Metrics")
                     st.table(perf_table)
+                    
+                    st.subheader("Volatility Forecast (GARCH)")
+                    vol_forecasts = {}
+                    for ticker in prices.columns:
+                        returns = prices[ticker].pct_change().dropna()
+                        if len(returns) > 100:
+                            garch = GARCHModel(returns)
+                            garch.fit()
+                            vol = garch.predict_next_volatility()
+                            vol_forecasts[ticker] = f"{vol:.2%}"
+                    st.json(vol_forecasts)
                 
                 with col2:
                     st.subheader("Cumulative Returns")
